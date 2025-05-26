@@ -45,7 +45,9 @@ const QuestionDetails = async ({ params, searchParams }: RouteParams) => {
     await increaseViews({ questionId: id });
   });
 
-  if (!success || !question) return redirect("/404");
+  if (!success || !question || !question.author || !question.author._id) {
+    return redirect("/404");
+  }
 
   await createInteraction({
     action: "view",
