@@ -3,13 +3,17 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
-import { isValidObjectId } from "mongoose";
 
 import { IAccountDoc } from "./database/account.model";
 import { IUserDoc } from "./database/user.model";
 import { api } from "./lib/api";
 import { SignInSchema } from "./lib/validations";
 import { ActionResponse } from "./types/global";
+
+// Simple ObjectId validation (24 hex chars)
+function isValidObjectId(id?: string): boolean {
+  return typeof id === "string" && /^[a-f\d]{24}$/i.test(id);
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -28,7 +32,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           if (!existingAccount) return null;
 
-          if (!isValidObjectId(existingAccount.userId)) {
+          // Use simple validation instead of mongoose's isValidObjectId
+          if (!isValidObjectId(existingAccount.userId?.toString())) {
             console.error("Invalid userId in existingAccount:", existingAccount.userId);
             return null;
           }
@@ -72,7 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!success || !existingAccount) return token;
 
-        if (!isValidObjectId(existingAccount.userId)) {
+        if (!isValidObjectId(existingAccount.userId?.toString())) {
           console.error("Invalid userId in existingAccount:", existingAccount.userId);
           return token;
         }
@@ -84,37 +89,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async signIn({ user, profile, account }) {
-      // Allow credentials sign-in as before
       if (account?.type === "credentials") return true;
-
-      // Deny if no user or account (basic check)
       if (!account || !user) return false;
 
-      // Bypass the API check for now — always allow OAuth sign-in
+      // Allow OAuth sign-in without API call for now
       return true;
-
-      /*
-      // If you want to re-enable the API check later, use this:
-      const userInfo = {
-        name: user.name!,
-        email: user.email!,
-        image: user.image!,
-        username:
-          account.provider === "github"
-            ? (profile?.login as string)
-            : (user.name?.toLowerCase() as string),
-      };
-
-      const { success } = (await api.auth.oAuthSignIn({
-        user: userInfo,
-        provider: account.provider as "github" | "google",
-        providerAccountId: account.providerAccountId,
-      })) as ActionResponse;
-
-      if (!success) return false;
-
-      return true;
-      */
     },
   },
 });
